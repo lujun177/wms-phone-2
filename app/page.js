@@ -1,3 +1,4 @@
+
 export default function Page() {
   return (
     <iframe 
@@ -16,6 +17,7 @@ export default function Page() {
           button { width: 100%; padding: 16px; font-size: 18px; border: none; border-radius: 8px; margin: 8px 0; font-weight: 600; }
           .in { background: #10b981; color: white; }
           .out { background: #ef4444; color: white; }
+          .scan { background: #3b82f6; color: white; }
           #reader { width: 100%; margin: 12px 0; }
           input { width: 100%; padding: 12px; font-size: 16px; border: 1px solid #ddd; border-radius: 8px; margin: 8px 0; box-sizing: border-box; }
           .info { padding: 12px; background: #f0f9ff; border-radius: 8px; margin: 8px 0; }
@@ -23,13 +25,15 @@ export default function Page() {
           .status-正常 { color: #10b981; }
           .status-低于安全库存 { color: #f59e0b; }
           .status-缺货 { color: #ef4444; }
+          .hidden { display: none; }
         </style>
         </head>
         <body>
           <div class="card">
             <h2>WMS扫码出入库</h2>
-            <div id="reader"></div>
-            <input id="code" placeholder="扫码或输入SKU/条码" oninput="searchGoods()" />
+            <button class="scan" id="startBtn" onclick="startScan()">点击开始扫码</button>
+            <div id="reader" class="hidden"></div>
+            <input id="code" placeholder="扫码或手动输入SKU/条码" oninput="searchGoods()" />
             <div id="goodsInfo"></div>
             <input id="qty" type="number" placeholder="数量" value="1" />
             <input id="operator" placeholder="操作人" />
@@ -45,12 +49,27 @@ export default function Page() {
           );
           
           let currentGoods = null;
+          let html5QrcodeScanner = null;
           
-          const html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
-          html5QrcodeScanner.render((decodedText) => {
-            document.getElementById('code').value = decodedText;
-            searchGoods();
-          });
+          async function startScan() {
+            document.getElementById('startBtn').classList.add('hidden');
+            document.getElementById('reader').classList.remove('hidden');
+            
+            html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+            html5QrcodeScanner.render((decodedText) => {
+              document.getElementById('code').value = decodedText;
+              searchGoods();
+              stopScan();
+            }, (error) => {});
+          }
+          
+          function stopScan() {
+            if (html5QrcodeScanner) {
+              html5QrcodeScanner.clear();
+              document.getElementById('reader').classList.add('hidden');
+              document.getElementById('startBtn').classList.remove('hidden');
+            }
+          }
           
           async function searchGoods() {
             const code = document.getElementById('code').value.trim();
