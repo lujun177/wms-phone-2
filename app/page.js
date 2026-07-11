@@ -43,7 +43,7 @@ export default function Page() {
   </div>
 
 <script>
-  const URL = 'https://khovpgqqrltmiclwzec.supabase.co';
+  const SUPABASE_URL = 'https://khovpgqqrltmiclwzec.supabase.co';
   const KEY = 'sb_publishable_2mJszIG9j1_C5M38SDMHaQ_bW3spbzm';
   
   const log = (msg, type) => {
@@ -51,12 +51,12 @@ export default function Page() {
     div.innerHTML += '<div class="log ' + (type || '') + '">' + msg + '</div>';
   };
   
-  log('URL: ' + URL);
+  log('URL: ' + SUPABASE_URL);
   log('KEY: ' + KEY.substring(0, 20) + '...');
   
   let supabase;
   try {
-    supabase = window.supabase.createClient(URL, KEY);
+    supabase = window.supabase.createClient(SUPABASE_URL, KEY);
     log('Supabase客户端创建成功', 'success');
     log('扫码库加载成功', 'success');
   } catch(e) {
