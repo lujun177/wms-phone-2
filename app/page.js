@@ -1,7 +1,7 @@
 export default function Page() {
   // ↓↓ 把第一行换成你的Project URL ↓↓↓
-  const SUPABASE_URL = 'https://xxxxxxxxxxxx.supabase.co'; 
-  const SUPABASE_KEY = 'sb_publishable_Yi8oMb6B-2G1S4gFNXe8BA_lbqlACKJkhovpgqqriltmiclwzec';
+  const SUPABASE_URL = 'khovpgqqriltmiclwzec; 
+  const SUPABASE_KEY = 'sb_publishable_2mJszIG9j1_C5M38SDMHaQ_bW3spbzm';
 
   return (
     <iframe 
