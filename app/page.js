@@ -1,7 +1,6 @@
 export default function Page() {
-  // ↓↓ 把第一行换成你的Project URL ↓↓↓
-  const SUPABASE_URL = 'khovpgqqriltmiclwzec; 
-  const SUPABASE_KEY = 'sb_publishable_2mJszIG9j1_C5M38SDMHaQ_bW3spbzm';
+  const SUPABASE_URL = 'https://khovpgqqrltmiclwzec.supabase.co'; 
+  const SUPABASE_KEY = 'sb_publishable_Yi8oMb6B-2G1S4gFNXe8BA_lbqlACKJkhovpgqqriltmiclwzec'; // 用你完整的
 
   return (
     <iframe 
@@ -28,11 +27,13 @@ export default function Page() {
           .status-正常 { color: #10b981; }
           .status-低于安全库存 { color: #f59e0b; }
           .status-缺货 { color: #ef4444; }
+          .error { padding: 12px; background: #fee2e2; color: #b91c1c; border-radius: 8px; margin: 8px 0; }
         </style>
         </head>
         <body>
           <div class="card">
             <h2>WMS扫码出入库</h2>
+            <div id="debug"></div>
             <button class="scan" onclick="startScan()">点击开始扫码</button>
             <div id="reader"></div>
             <input id="code" placeholder="扫码或输入SKU/条码" oninput="searchGoods()" />
@@ -45,7 +46,16 @@ export default function Page() {
           </div>
         
         <script>
-          const supabase = window.supabase.createClient('${SUPABASE_URL}', '${SUPABASE_KEY}');
+          const debug = document.getElementById('debug');
+          debug.innerHTML = '<div class="info">正在连接数据库...</div>';
+          
+          let supabase;
+          try {
+            supabase = window.supabase.createClient('${SUPABASE_URL}', '${SUPABASE_KEY}');
+            debug.innerHTML = '<div class="info" style="color:green">数据库连接成功</div>';
+          } catch(e) {
+            debug.innerHTML = '<div class="error">连接失败: ' + e.message + '</div>';
+          }
           
           let currentGoods = null;
           let html5QrcodeScanner = null;
@@ -76,75 +86,21 @@ export default function Page() {
           window.searchGoods = async function() {
             const code = document.getElementById('code').value.trim();
             const info = document.getElementById('goodsInfo');
+            const msg = document.getElementById('msg');
             if (!code) {
               info.innerHTML = '';
               window.currentGoods = null;
               return;
             }
             
+            msg.innerHTML = '<p style="color:blue">查询中...</p>';
             let { data, error } = await supabase.from('stock_view').select('*').eq('sku', code).single();
-            if (!data) {
-              let res = await supabase.from('goods').select('sku').eq('barcode', code).single();
-              if (res.data) {
-                let res2 = await supabase.from('stock_view').select('*').eq('sku', res.data.sku).single();
-                data = res2.data;
-              }
-            }
-            
-            if (data) {
-              window.currentGoods = data;
-              info.innerHTML = \`
-                <div class="info">
-                  <div><b>\${data.name}</b> [\${data.sku}]</div>
-                  <div>库位: \${data.location || '无'}</div>
-                  <div>当前库存: <span class="stock">\${data.current_stock}</span></div>
-                  <div>安全库存: \${data.safe_stock}</div>
-                  <div>状态: <span class="status-\${data.status}">\${data.status}</span></div>
-                </div>
-              \`;
-            } else {
-              window.currentGoods = null;
-              info.innerHTML = '<div class="info" style="color:red">未找到该货品</div>';
-            }
-          }
-        
-          window.submit = async function(type) {
-            const qty = parseInt(document.getElementById('qty').value);
-            const operator = document.getElementById('operator').value || '手机端';
-            const msg = document.getElementById('msg');
-            
-            if (!window.currentGoods) {
-              msg.innerHTML = '<p style="color:red">请先输入SKU识别货品</p>';
-              return;
-            }
-            if (!qty || qty <= 0) {
-              msg.innerHTML = '<p style="color:red">请输入正确数量</p>';
-              return;
-            }
-            
-            const { error } = await supabase.from('flow').insert([{
-              type: type,
-              sku: window.currentGoods.sku,
-              name: window.currentGoods.name,
-              qty: type === '入库' ? qty : -qty,
-              operator: operator
-            }]);
             
             if (error) {
-              msg.innerHTML = '<p style="color:red">失败: ' + error.message + '</p>';
-            } else {
-              msg.innerHTML = '<p style="color:green">' + type + '成功: ' + window.currentGoods.name + ' x' + qty + '</p>';
-              document.getElementById('code').value = '';
-              document.getElementById('qty').value = '1';
-              document.getElementById('goodsInfo').innerHTML = '';
-              window.currentGoods = null;
+              msg.innerHTML = '<div class="error">查询错误: ' + error.message + '</div>';
+              console.log(error);
+              return;
             }
-          }
-        </script>
-        </body>
-        </html>
-      `} 
-      style={{width: '100%', height: '100vh', border: 'none'}}
-    />
-  )
-}
+            
+            if (!data) {
+              let res = await
