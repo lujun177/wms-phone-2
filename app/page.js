@@ -41,57 +41,57 @@ export default function Page() {
           </div>
         
         <script>
-          const supabase = window.supabase.createClient(
+          window.supabaseClient = window.supabase.createClient(
             '${process.env.NEXT_PUBLIC_SUPABASE_URL}',
             '${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}'
           );
           
-          let currentGoods = null;
-          let html5QrcodeScanner;
+          window.currentGoods = null;
+          window.html5QrcodeScanner = null;
           
-          async function startScan() {
+          window.startScan = async function() {
             document.getElementById('msg').innerHTML = '';
-            if (html5QrcodeScanner) {
-              await html5QrcodeScanner.clear();
+            if (window.html5QrcodeScanner) {
+              try { await window.html5QrcodeScanner.clear(); } catch(e) {}
             }
-            html5QrcodeScanner = new Html5Qrcode("reader");
+            window.html5QrcodeScanner = new Html5Qrcode("reader");
             const config = { fps: 10, qrbox: { width: 250, height: 250 } };
             
-            html5QrcodeScanner.start(
+            window.html5QrcodeScanner.start(
               { facingMode: "environment" }, 
               config,
               (decodedText) => {
                 document.getElementById('code').value = decodedText;
-                searchGoods();
-                html5QrcodeScanner.stop();
+                window.searchGoods();
+                window.html5QrcodeScanner.stop();
                 document.getElementById('reader').innerHTML = '';
               },
               (error) => {}
             ).catch(err => {
-              document.getElementById('msg').innerHTML = '<p style="color:red">摄像头启动失败：' + err + '，请检查权限</p>';
+              document.getElementById('msg').innerHTML = '<p style="color:red">摄像头启动失败：' + err + '，请检查权限或手动输入</p>';
             });
           }
           
-          async function searchGoods() {
+          window.searchGoods = async function() {
             const code = document.getElementById('code').value.trim();
             const info = document.getElementById('goodsInfo');
             if (!code) {
               info.innerHTML = '';
-              currentGoods = null;
+              window.currentGoods = null;
               return;
             }
             
-            let { data } = await supabase.from('stock_view').select('*').eq('sku', code).single();
+            let { data, error } = await window.supabaseClient.from('stock_view').select('*').eq('sku', code).single();
             if (!data) {
-              let res = await supabase.from('goods').select('sku').eq('barcode', code).single();
+              let res = await window.supabaseClient.from('goods').select('sku').eq('barcode', code).single();
               if (res.data) {
-                data = await supabase.from('stock_view').select('*').eq('sku', res.data.sku).single();
-                data = data.data;
+                let res2 = await window.supabaseClient.from('stock_view').select('*').eq('sku', res.data.sku).single();
+                data = res2.data;
               }
             }
             
             if (data) {
-              currentGoods = data;
+              window.currentGoods = data;
               info.innerHTML = \`
                 <div class="info">
                   <div><b>\${data.name}</b> [\${data.sku}]</div>
@@ -102,18 +102,18 @@ export default function Page() {
                 </div>
               \`;
             } else {
-              currentGoods = null;
+              window.currentGoods = null;
               info.innerHTML = '<div class="info" style="color:red">未找到该货品，请先在系统中维护</div>';
             }
           }
         
-          async function submit(type) {
+          window.submit = async function(type) {
             const qty = parseInt(document.getElementById('qty').value);
             const operator = document.getElementById('operator').value || '手机端';
             const msg = document.getElementById('msg');
             
-            if (!currentGoods) {
-              msg.innerHTML = '<p style="color:red">请先扫码识别货品</p>';
+            if (!window.currentGoods) {
+              msg.innerHTML = '<p style="color:red">请先输入SKU/条码识别货品</p>';
               return;
             }
             if (!qty || qty <= 0) {
@@ -121,10 +121,10 @@ export default function Page() {
               return;
             }
             
-            const { error } = await supabase.from('flow').insert([{
+            const { error } = await window.supabaseClient.from('flow').insert([{
               type: type,
-              sku: currentGoods.sku,
-              name: currentGoods.name,
+              sku: window.currentGoods.sku,
+              name: window.currentGoods.name,
               qty: type === '入库' ? qty : -qty,
               operator: operator
             }]);
@@ -132,11 +132,11 @@ export default function Page() {
             if (error) {
               msg.innerHTML = '<p style="color:red">失败: ' + error.message + '</p>';
             } else {
-              msg.innerHTML = '<p style="color:green">' + type + '成功: ' + currentGoods.name + ' x' + qty + '</p>';
+              msg.innerHTML = '<p style="color:green">' + type + '成功: ' + window.currentGoods.name + ' x' + qty + '</p>';
               document.getElementById('code').value = '';
               document.getElementById('qty').value = '1';
               document.getElementById('goodsInfo').innerHTML = '';
-              currentGoods = null;
+              window.currentGoods = null;
             }
           }
         </script>
