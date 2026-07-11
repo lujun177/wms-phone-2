@@ -196,7 +196,6 @@ export default function Page() {
     }
   }
   
-  // 页面加载完就初始化
   if (document.readyState === 'complete') {
     init();
   } else {
