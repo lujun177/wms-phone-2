@@ -6,7 +6,7 @@ export default function Page() {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WMS扫码出入库</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode"></script>
 <style>
   body { font-family: -apple-system, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
@@ -58,6 +58,7 @@ export default function Page() {
   try {
     supabase = window.supabase.createClient(URL, KEY);
     log('Supabase客户端创建成功', 'success');
+    log('扫码库加载成功', 'success');
   } catch(e) {
     log('客户端创建失败: ' + e.message, 'error');
   }
@@ -85,6 +86,7 @@ export default function Page() {
       (error) => {}
     ).catch(err => {
       document.getElementById('msg').innerHTML = '<p style="color:red">摄像头启动失败：' + err + '</p>';
+      log('摄像头启动失败: ' + err, 'error');
     });
   }
   
@@ -94,42 +96,61 @@ export default function Page() {
     const msg = document.getElementById('msg');
     if (!code) {
       info.innerHTML = '';
-      window.currentGoods = null;
+      currentGoods = null;
       return;
     }
     
     log('查询SKU: ' + code);
-    let { data, error } = await supabase.from('stock_view').select('*').eq('sku', code).single();
     
-    if (error) {
-      log('查询错误: ' + error.message + ' Code: ' + error.code, 'error');
-      msg.innerHTML = '<div class="error">查询错误: ' + error.message + '</div>';
+    let { data: goods, error: err1 } = await supabase.from('goods').select('*').or('sku.eq.' + code + ',barcode.eq.' + code).single();
+    
+    if (err1) {
+      log('查goods表失败: ' + err1.message + ' Code: ' + err1.code, 'error');
+      msg.innerHTML = '<div class="error">查询错误: ' + err1.message + '</div>';
       return;
     }
     
-    if (!data) {
-      let res = await supabase.from('goods').select('sku').eq('barcode', code).single();
-      if (res.data) {
-        let res2 = await supabase.from('stock_view').select('*').eq('sku', res.data.sku).single();
-        data = res2.data;
-      }
-    }
-    
-    if (data) {
-      window.currentGoods = data;
-      log('查询成功: ' + data.name, 'success');
-      info.innerHTML = '<div class="info">' +
-        '<div><b>' + data.name + '</b> [' + data.sku + ']</div>' +
-        '<div>库位: ' + (data.location || '无') + '</div>' +
-        '<div>当前库存: <span class="stock">' + data.current_stock + '</span></div>' +
-        '<div>安全库存: ' + data.safe_stock + '</div>' +
-        '<div>状态: <span class="status-' + data.status + '">' + data.status + '</span></div>' +
-        '</div>';
-    } else {
-      window.currentGoods = null;
+    if (!goods) {
+      currentGoods = null;
       info.innerHTML = '<div class="info" style="color:red">未找到该货品</div>';
       log('未找到货品', 'error');
+      return;
     }
+    
+    let { data: flows, error: err2 } = await supabase.from('flow').select('qty').eq('sku', goods.sku);
+    
+    if (err2) {
+      log('查flow表失败: ' + err2.message, 'error');
+      msg.innerHTML = '<div class="error">查询库存失败: ' + err2.message + '</div>';
+      return;
+    }
+    
+    let current_stock = 0;
+    if (flows) {
+      current_stock = flows.reduce((sum, f) => sum + (f.qty || 0), 0);
+    }
+    
+    let status = '正常';
+    if (current_stock <= 0) status = '缺货';
+    else if (current_stock < goods.safe_stock) status = '低于安全库存';
+    
+    currentGoods = {
+      sku: goods.sku,
+      name: goods.name,
+      location: goods.location,
+      safe_stock: goods.safe_stock,
+      current_stock: current_stock,
+      status: status
+    };
+    
+    log('查询成功: ' + goods.name, 'success');
+    info.innerHTML = '<div class="info">' +
+      '<div><b>' + goods.name + '</b> [' + goods.sku + ']</div>' +
+      '<div>库位: ' + (goods.location || '无') + '</div>' +
+      '<div>当前库存: <span class="stock">' + current_stock + '</span></div>' +
+      '<div>安全库存: ' + goods.safe_stock + '</div>' +
+      '<div>状态: <span class="status-' + status + '">' + status + '</span></div>' +
+      '</div>';
   }
 
   window.submit = async function(type) {
@@ -137,7 +158,7 @@ export default function Page() {
     const operator = document.getElementById('operator').value || '手机端';
     const msg = document.getElementById('msg');
     
-    if (!window.currentGoods) {
+    if (!currentGoods) {
       msg.innerHTML = '<p style="color:red">请先输入SKU识别货品</p>';
       return;
     }
@@ -148,8 +169,8 @@ export default function Page() {
     
     const { error } = await supabase.from('flow').insert([{
       type: type,
-      sku: window.currentGoods.sku,
-      name: window.currentGoods.name,
+      sku: currentGoods.sku,
+      name: currentGoods.name,
       qty: type === '入库' ? qty : -qty,
       operator: operator
     }]);
@@ -158,12 +179,12 @@ export default function Page() {
       log('提交失败: ' + error.message, 'error');
       msg.innerHTML = '<p style="color:red">失败: ' + error.message + '</p>';
     } else {
-      log(type + '成功: ' + window.currentGoods.name + ' x' + qty, 'success');
-      msg.innerHTML = '<p style="color:green">' + type + '成功: ' + window.currentGoods.name + ' x' + qty + '</p>';
+      log(type + '成功: ' + currentGoods.name + ' x' + qty, 'success');
+      msg.innerHTML = '<p style="color:green">' + type + '成功: ' + currentGoods.name + ' x' + qty + '</p>';
       document.getElementById('code').value = '';
       document.getElementById('qty').value = '1';
       document.getElementById('goodsInfo').innerHTML = '';
-      window.currentGoods = null;
+      currentGoods = null;
     }
   }
 </script>
@@ -175,6 +196,7 @@ export default function Page() {
     <iframe 
       srcDoc={html} 
       style={{width: '100%', height: '100vh', border: 'none'}}
+      allow="camera; microphone"
     />
   )
 }
