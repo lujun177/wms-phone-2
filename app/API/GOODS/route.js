@@ -4,30 +4,20 @@ const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZi
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const sku = searchParams.get('sku');
-  const type = searchParams.get('type');
-
+  
   if (!sku) return Response.json({ error: 'sku不能为空' }, { status: 400 });
 
   try {
-    if (type === 'stock') {
-      // 查flow表算库存
-      const url = `${SUPABASE_URL}/rest/v1/flow?sku=eq.${sku}&select=qty`;
-      const res = await fetch(url, {
-        headers: { 'apikey': KEY, 'Authorization': `Bearer ${KEY}` },
-        cache: 'no-store'
-      });
-      const data = await res.json();
-      return Response.json(data);
-    } else {
-      // 查goods表
-      const url = `${SUPABASE_URL}/rest/v1/goods?sku=eq.${sku}&select=*`;
-      const res = await fetch(url, {
-        headers: { 'apikey': KEY, 'Authorization': `Bearer ${KEY}` },
-        cache: 'no-store'
-      });
-      const data = await res.json();
-      return Response.json(data);
-    }
+    const url = `${SUPABASE_URL}/rest/v1/goods?sku=eq.${sku}&select=*`;
+    const res = await fetch(url, {
+      headers: {
+        'apikey': KEY,
+        'Authorization': `Bearer ${KEY}`
+      },
+      cache: 'no-store'
+    });
+    const data = await res.json();
+    return Response.json(data);
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });
   }
