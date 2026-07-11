@@ -44,7 +44,7 @@ export default function Page() {
 
 <script>
   const SUPABASE_URL = 'https://khovpgqqrltmiclwzec.supabase.co';
-  const KEY = 'sb_publishable_2mJszIG9j1_C5M38SDMHaQ_bW3spbzm';
+  const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtob3ZwZ3FxcmlsdG1pY2x3emVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3NzMyNDQsImV4cCI6MjA5OTM0OTI0NH0.H1BAyz93efH4FRC6TzBgR9RF8Qnhmps8WCdltvc-W9k';
   
   const log = (msg, type) => {
     const div = document.getElementById('log');
