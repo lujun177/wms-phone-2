@@ -54,13 +54,15 @@ export default function Page() {
   log('URL: ' + URL);
   log('KEY: ' + KEY.substring(0, 20) + '...');
   
-  window.addEventListener('load', function() {
-    if (!window.supabase) {
-      log('Supabase库加载失败', 'error');
+  function init() {
+    if (typeof window.supabase === 'undefined') {
+      log('Supabase库加载失败，重试中...', 'error');
+      setTimeout(init, 200);
       return;
     }
-    if (!window.Html5Qrcode) {
-      log('扫码库加载失败', 'error');
+    if (typeof window.Html5Qrcode === 'undefined') {
+      log('扫码库加载失败，重试中...', 'error');
+      setTimeout(init, 200);
       return;
     }
     
@@ -107,7 +109,6 @@ export default function Page() {
       
       log('查询SKU: ' + code);
       
-      // 1. 先查goods表拿基本信息
       let { data: goods, error: err1 } = await supabase.from('goods').select('*').or('sku.eq.' + code + ',barcode.eq.' + code).single();
       
       if (err1) {
@@ -123,7 +124,6 @@ export default function Page() {
         return;
       }
       
-      // 2. 再查flow表算库存
       let { data: flows, error: err2 } = await supabase.from('flow').select('qty').eq('sku', goods.sku);
       
       if (err2) {
@@ -194,7 +194,14 @@ export default function Page() {
         currentGoods = null;
       }
     }
-  });
+  }
+  
+  // 页面加载完就初始化
+  if (document.readyState === 'complete') {
+    init();
+  } else {
+    window.addEventListener('load', init);
+  }
 </script>
 </body>
 </html>
@@ -204,6 +211,7 @@ export default function Page() {
     <iframe 
       srcDoc={html} 
       style={{width: '100%', height: '100vh', border: 'none'}}
+      allow="camera; microphone"
     />
   )
 }
