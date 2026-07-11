@@ -9,7 +9,6 @@ export default function Home() {
   const [stock, setStock] = useState(0);
   const [qty, setQty] = useState(1);
   const [user, setUser] = useState('');
-  const [scanner, setScanner] = useState(null);
   const scannerRef = useRef(null);
 
   const addLog = (msg, type = 'info') => {
@@ -18,23 +17,24 @@ export default function Home() {
 
   useEffect(() => {
     addLog('页面加载成功', 'success');
-    addLog('Supabase代理已启用');
+    addLog('使用Vercel代理连接Supabase');
   }, []);
 
   const queryGoods = async (code) => {
     if (!code) return;
     addLog(`查询SKU: ${code}`);
-    
+
     try {
+      // 改这里：走Vercel代理，不再直连Supabase
       const res = await fetch(`/api/goods?sku=${code}`);
       const data = await res.json();
-      
+
       if (data.error) {
         addLog(`查询失败: ${data.error}`, 'error');
         setGoods(null);
         return;
       }
-      
+
       if (data.length > 0) {
         setGoods(data[0]);
         addLog(`查询成功: ${data[0].name}`, 'success');
@@ -44,21 +44,22 @@ export default function Home() {
         addLog('未找到商品', 'error');
       }
     } catch (error) {
-      addLog(`查询失败: ${error.message}`, 'error');
+      addLog(`查询错误: ${error.message}`, 'error');
       setGoods(null);
     }
   };
 
   const calcStock = async (sku) => {
     try {
-      const res = await fetch(`https://khovpgqqrltmiclwzec.supabase.co/rest/v1/flow?sku=eq.${sku}&select=qty`, {
-        headers: {
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtob3ZwZ3FxcmlsdG1pY2x3emVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3NzMyNDQsImV4cCI6MjA5OTM0OTI0NH0.H1BAyz93efH4FRC6TzBgR9RF8Qnhmps8WCdltvc-W9k',
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtob3ZwZ3FxcmlsdG1pY2x3emVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3NzMyNDQsImV4cCI6MjA5OTM0OTI0NH0.H1BAyz93efH4FRC6TzBgR9RF8Qnhmps8WCdltvc-W9k'
-        }
-      });
-      const data = await res.json();
-      const total = data.reduce((sum, item) => sum + item.qty, 0);
+      // 库存计算也走代理
+      const res = await fetch(`/api/goods?sku=${sku}`);
+      const goodsData = await res.json();
+      if (goodsData.length === 0) return setStock(0);
+
+      // 查flow表，临时用服务端渲染绕过
+      const res2 = await fetch(`/api/goods?sku=${sku}&type=stock`);
+      const flowData = await res2.json();
+      const total = Array.isArray(flowData)? flowData.reduce((sum, item) => sum + item.qty, 0) : 0;
       setStock(total);
     } catch (e) {
       setStock(0);
@@ -67,19 +68,19 @@ export default function Home() {
 
   const startScan = () => {
     if (scannerRef.current) return;
-    
-    const html5QrcodeScanner = new Html5QrcodeScanner('reader', { 
-      fps: 10, 
-      qrbox: 250 
+
+    const html5QrcodeScanner = new Html5QrcodeScanner('reader', {
+      fps: 10,
+      qrbox: 250
     });
-    
+
     html5QrcodeScanner.render((decodedText) => {
       setSku(decodedText);
       queryGoods(decodedText);
       html5QrcodeScanner.clear();
       scannerRef.current = null;
     }, () => {});
-    
+
     scannerRef.current = html5QrcodeScanner;
     addLog('扫码库加载成功', 'success');
   };
@@ -91,6 +92,7 @@ export default function Home() {
     }
 
     try {
+      // 改这里：走Vercel代理提交
       const res = await fetch('/api/goods', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -103,9 +105,9 @@ export default function Home() {
           time: new Date().toISOString()
         })
       });
-      
+
       const data = await res.json();
-      
+
       if (data.success) {
         addLog(`${type}成功: ${goods.name} x${qty}`, 'success');
         calcStock(goods.sku);
@@ -123,7 +125,7 @@ export default function Home() {
   return (
     <div className="p-4 max-w-md mx-auto">
       <h1 className="text-2xl font-bold mb-4">WMS扫码出入库</h1>
-      
+
       <div className="space-y-2 mb-4 h-40 overflow-y-auto bg-gray-50 p-2 rounded">
         {logs.map((log, i) => (
           <div key={i} className={`p-2 rounded text-sm ${
@@ -137,7 +139,7 @@ export default function Home() {
       </div>
 
       <div id="reader" className="mb-4"></div>
-      <button 
+      <button
         onClick={startScan}
         className="w-full bg-blue-500 text-white p-3 rounded mb-4 font-bold"
       >
@@ -178,13 +180,13 @@ export default function Home() {
       />
 
       <div className="flex gap-2">
-        <button 
+        <button
           onClick={() => submitFlow('入库')}
           className="flex-1 bg-green-500 text-white p-3 rounded font-bold"
         >
           扫码入库
         </button>
-        <button 
+        <button
           onClick={() => submitFlow('出库')}
           className="flex-1 bg-red-500 text-white p-3 rounded font-bold"
         >
