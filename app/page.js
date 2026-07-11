@@ -6,7 +6,10 @@ export default function Page() {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WMS扫码出入库</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
+<script type="module">
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
+  window.createClient = createClient;
+</script>
 <script src="https://unpkg.com/html5-qrcode"></script>
 <style>
   body { font-family: -apple-system, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
@@ -42,7 +45,7 @@ export default function Page() {
     <div id="msg"></div>
   </div>
 
-<script>
+<script type="module">
   const URL = 'https://khovpgqqrltmiclwzec.supabase.co';
   const KEY = 'sb_publishable_2mJszIG9j1_C5M38SDMHaQ_bW3spbzm';
   
@@ -54,9 +57,12 @@ export default function Page() {
   log('URL: ' + URL);
   log('KEY: ' + KEY.substring(0, 20) + '...');
   
+  // 等模块加载完再初始化
+  await new Promise(r => setTimeout(r, 100));
+  
   let supabase;
   try {
-    supabase = window.supabase.createClient(URL, KEY);
+    supabase = window.createClient(URL, KEY);
     log('Supabase客户端创建成功', 'success');
   } catch(e) {
     log('客户端创建失败: ' + e.message, 'error');
