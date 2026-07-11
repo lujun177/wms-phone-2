@@ -7,7 +7,7 @@ export default function Page() {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WMS扫码出入库</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
   body { font-family: -apple-system, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
   .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
@@ -59,9 +59,14 @@ export default function Page() {
       log('Supabase库加载失败', 'error');
       return;
     }
+    if (!window.Html5Qrcode) {
+      log('扫码库加载失败', 'error');
+      return;
+    }
     
     const supabase = window.supabase.createClient(URL, KEY);
     log('Supabase客户端创建成功', 'success');
+    log('扫码库加载成功', 'success');
     
     let currentGoods = null;
     let html5QrcodeScanner = null;
@@ -86,6 +91,7 @@ export default function Page() {
         (error) => {}
       ).catch(err => {
         document.getElementById('msg').innerHTML = '<p style="color:red">摄像头启动失败：' + err + '</p>';
+        log('摄像头启动失败: ' + err, 'error');
       });
     }
     
