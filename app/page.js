@@ -1,4 +1,8 @@
 export default function Page() {
+  // ↓↓ 把第一行换成你的Project URL ↓↓↓
+  const SUPABASE_URL = 'https://xxxxxxxxxxxx.supabase.co'; 
+  const SUPABASE_KEY = 'sb_publishable_Yi8oMb6B-2G1S4gFNXe8BA_lbqlACKJkhovpgqqriltmiclwzec';
+
   return (
     <iframe 
       srcDoc={`
@@ -41,34 +45,31 @@ export default function Page() {
           </div>
         
         <script>
-          window.supabaseClient = window.supabase.createClient(
-            '${process.env.NEXT_PUBLIC_SUPABASE_URL}',
-            '${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}'
-          );
+          const supabase = window.supabase.createClient('${SUPABASE_URL}', '${SUPABASE_KEY}');
           
-          window.currentGoods = null;
-          window.html5QrcodeScanner = null;
+          let currentGoods = null;
+          let html5QrcodeScanner = null;
           
           window.startScan = async function() {
             document.getElementById('msg').innerHTML = '';
-            if (window.html5QrcodeScanner) {
-              try { await window.html5QrcodeScanner.clear(); } catch(e) {}
+            if (html5QrcodeScanner) {
+              try { await html5QrcodeScanner.clear(); } catch(e) {}
             }
-            window.html5QrcodeScanner = new Html5Qrcode("reader");
+            html5QrcodeScanner = new Html5Qrcode("reader");
             const config = { fps: 10, qrbox: { width: 250, height: 250 } };
             
-            window.html5QrcodeScanner.start(
+            html5QrcodeScanner.start(
               { facingMode: "environment" }, 
               config,
               (decodedText) => {
                 document.getElementById('code').value = decodedText;
                 window.searchGoods();
-                window.html5QrcodeScanner.stop();
+                html5QrcodeScanner.stop();
                 document.getElementById('reader').innerHTML = '';
               },
               (error) => {}
             ).catch(err => {
-              document.getElementById('msg').innerHTML = '<p style="color:red">摄像头启动失败：' + err + '，请检查权限或手动输入</p>';
+              document.getElementById('msg').innerHTML = '<p style="color:red">摄像头启动失败：' + err + '</p>';
             });
           }
           
@@ -81,11 +82,11 @@ export default function Page() {
               return;
             }
             
-            let { data, error } = await window.supabaseClient.from('stock_view').select('*').eq('sku', code).single();
+            let { data, error } = await supabase.from('stock_view').select('*').eq('sku', code).single();
             if (!data) {
-              let res = await window.supabaseClient.from('goods').select('sku').eq('barcode', code).single();
+              let res = await supabase.from('goods').select('sku').eq('barcode', code).single();
               if (res.data) {
-                let res2 = await window.supabaseClient.from('stock_view').select('*').eq('sku', res.data.sku).single();
+                let res2 = await supabase.from('stock_view').select('*').eq('sku', res.data.sku).single();
                 data = res2.data;
               }
             }
@@ -103,7 +104,7 @@ export default function Page() {
               \`;
             } else {
               window.currentGoods = null;
-              info.innerHTML = '<div class="info" style="color:red">未找到该货品，请先在系统中维护</div>';
+              info.innerHTML = '<div class="info" style="color:red">未找到该货品</div>';
             }
           }
         
@@ -113,7 +114,7 @@ export default function Page() {
             const msg = document.getElementById('msg');
             
             if (!window.currentGoods) {
-              msg.innerHTML = '<p style="color:red">请先输入SKU/条码识别货品</p>';
+              msg.innerHTML = '<p style="color:red">请先输入SKU识别货品</p>';
               return;
             }
             if (!qty || qty <= 0) {
@@ -121,7 +122,7 @@ export default function Page() {
               return;
             }
             
-            const { error } = await window.supabaseClient.from('flow').insert([{
+            const { error } = await supabase.from('flow').insert([{
               type: type,
               sku: window.currentGoods.sku,
               name: window.currentGoods.name,
