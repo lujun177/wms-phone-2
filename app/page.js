@@ -1,4 +1,3 @@
-
 export default function Page() {
   return (
     <iframe 
@@ -25,15 +24,14 @@ export default function Page() {
           .status-正常 { color: #10b981; }
           .status-低于安全库存 { color: #f59e0b; }
           .status-缺货 { color: #ef4444; }
-          .hidden { display: none; }
         </style>
         </head>
         <body>
           <div class="card">
             <h2>WMS扫码出入库</h2>
-            <button class="scan" id="startBtn" onclick="startScan()">点击开始扫码</button>
-            <div id="reader" class="hidden"></div>
-            <input id="code" placeholder="扫码或手动输入SKU/条码" oninput="searchGoods()" />
+            <button class="scan" onclick="startScan()">点击开始扫码</button>
+            <div id="reader"></div>
+            <input id="code" placeholder="扫码或输入SKU/条码" oninput="searchGoods()" />
             <div id="goodsInfo"></div>
             <input id="qty" type="number" placeholder="数量" value="1" />
             <input id="operator" placeholder="操作人" />
@@ -49,26 +47,29 @@ export default function Page() {
           );
           
           let currentGoods = null;
-          let html5QrcodeScanner = null;
+          let html5QrcodeScanner;
           
           async function startScan() {
-            document.getElementById('startBtn').classList.add('hidden');
-            document.getElementById('reader').classList.remove('hidden');
-            
-            html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
-            html5QrcodeScanner.render((decodedText) => {
-              document.getElementById('code').value = decodedText;
-              searchGoods();
-              stopScan();
-            }, (error) => {});
-          }
-          
-          function stopScan() {
+            document.getElementById('msg').innerHTML = '';
             if (html5QrcodeScanner) {
-              html5QrcodeScanner.clear();
-              document.getElementById('reader').classList.add('hidden');
-              document.getElementById('startBtn').classList.remove('hidden');
+              await html5QrcodeScanner.clear();
             }
+            html5QrcodeScanner = new Html5Qrcode("reader");
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            
+            html5QrcodeScanner.start(
+              { facingMode: "environment" }, 
+              config,
+              (decodedText) => {
+                document.getElementById('code').value = decodedText;
+                searchGoods();
+                html5QrcodeScanner.stop();
+                document.getElementById('reader').innerHTML = '';
+              },
+              (error) => {}
+            ).catch(err => {
+              document.getElementById('msg').innerHTML = '<p style="color:red">摄像头启动失败：' + err + '，请检查权限</p>';
+            });
           }
           
           async function searchGoods() {
