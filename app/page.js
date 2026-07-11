@@ -1,6 +1,6 @@
 export default function Page() {
   const SUPABASE_URL = 'https://khovpgqqrltmiclwzec.supabase.co'; 
-  const SUPABASE_KEY = 'sb_publishable_Yi8oMb6B-2G1S4gFNXe8BA_lbqlACKJkhovpgqqriltmiclwzec'; // 用你完整的
+  const SUPABASE_KEY = 'sb_publishable_2mJszIG9j1_C5M38SDMHaQ_bW3spbzm'; // 用你完整的
 
   return (
     <iframe 
