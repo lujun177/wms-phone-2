@@ -6,8 +6,8 @@ export default function Page() {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WMS扫码出入库</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
+<script src="https://unpkg.com/html5-qrcode"></script>
 <style>
   body { font-family: -apple-system, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
   .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
@@ -54,152 +54,117 @@ export default function Page() {
   log('URL: ' + URL);
   log('KEY: ' + KEY.substring(0, 20) + '...');
   
-  function init() {
-    if (typeof window.supabase === 'undefined') {
-      log('Supabase库加载失败，重试中...', 'error');
-      setTimeout(init, 200);
-      return;
-    }
-    if (typeof window.Html5Qrcode === 'undefined') {
-      log('扫码库加载失败，重试中...', 'error');
-      setTimeout(init, 200);
-      return;
-    }
-    
-    const supabase = window.supabase.createClient(URL, KEY);
+  let supabase;
+  try {
+    supabase = window.supabase.createClient(URL, KEY);
     log('Supabase客户端创建成功', 'success');
-    log('扫码库加载成功', 'success');
-    
-    let currentGoods = null;
-    let html5QrcodeScanner = null;
-    
-    window.startScan = async function() {
-      document.getElementById('msg').innerHTML = '';
-      if (html5QrcodeScanner) {
-        try { await html5QrcodeScanner.clear(); } catch(e) {}
-      }
-      html5QrcodeScanner = new Html5Qrcode("reader");
-      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-      
-      html5QrcodeScanner.start(
-        { facingMode: "environment" }, 
-        config,
-        (decodedText) => {
-          document.getElementById('code').value = decodedText;
-          window.searchGoods();
-          html5QrcodeScanner.stop();
-          document.getElementById('reader').innerHTML = '';
-        },
-        (error) => {}
-      ).catch(err => {
-        document.getElementById('msg').innerHTML = '<p style="color:red">摄像头启动失败：' + err + '</p>';
-        log('摄像头启动失败: ' + err, 'error');
-      });
-    }
-    
-    window.searchGoods = async function() {
-      const code = document.getElementById('code').value.trim();
-      const info = document.getElementById('goodsInfo');
-      const msg = document.getElementById('msg');
-      if (!code) {
-        info.innerHTML = '';
-        currentGoods = null;
-        return;
-      }
-      
-      log('查询SKU: ' + code);
-      
-      let { data: goods, error: err1 } = await supabase.from('goods').select('*').or('sku.eq.' + code + ',barcode.eq.' + code).single();
-      
-      if (err1) {
-        log('查goods表失败: ' + err1.message + ' Code: ' + err1.code, 'error');
-        msg.innerHTML = '<div class="error">查询错误: ' + err1.message + '</div>';
-        return;
-      }
-      
-      if (!goods) {
-        currentGoods = null;
-        info.innerHTML = '<div class="info" style="color:red">未找到该货品</div>';
-        log('未找到货品', 'error');
-        return;
-      }
-      
-      let { data: flows, error: err2 } = await supabase.from('flow').select('qty').eq('sku', goods.sku);
-      
-      if (err2) {
-        log('查flow表失败: ' + err2.message, 'error');
-        msg.innerHTML = '<div class="error">查询库存失败: ' + err2.message + '</div>';
-        return;
-      }
-      
-      let current_stock = 0;
-      if (flows) {
-        current_stock = flows.reduce((sum, f) => sum + (f.qty || 0), 0);
-      }
-      
-      let status = '正常';
-      if (current_stock <= 0) status = '缺货';
-      else if (current_stock < goods.safe_stock) status = '低于安全库存';
-      
-      currentGoods = {
-        sku: goods.sku,
-        name: goods.name,
-        location: goods.location,
-        safe_stock: goods.safe_stock,
-        current_stock: current_stock,
-        status: status
-      };
-      
-      log('查询成功: ' + goods.name, 'success');
-      info.innerHTML = '<div class="info">' +
-        '<div><b>' + goods.name + '</b> [' + goods.sku + ']</div>' +
-        '<div>库位: ' + (goods.location || '无') + '</div>' +
-        '<div>当前库存: <span class="stock">' + current_stock + '</span></div>' +
-        '<div>安全库存: ' + goods.safe_stock + '</div>' +
-        '<div>状态: <span class="status-' + status + '">' + status + '</span></div>' +
-        '</div>';
-    }
-  
-    window.submit = async function(type) {
-      const qty = parseInt(document.getElementById('qty').value);
-      const operator = document.getElementById('operator').value || '手机端';
-      const msg = document.getElementById('msg');
-      
-      if (!currentGoods) {
-        msg.innerHTML = '<p style="color:red">请先输入SKU识别货品</p>';
-        return;
-      }
-      if (!qty || qty <= 0) {
-        msg.innerHTML = '<p style="color:red">请输入正确数量</p>';
-        return;
-      }
-      
-      const { error } = await supabase.from('flow').insert([{
-        type: type,
-        sku: currentGoods.sku,
-        name: currentGoods.name,
-        qty: type === '入库' ? qty : -qty,
-        operator: operator
-      }]);
-      
-      if (error) {
-        log('提交失败: ' + error.message, 'error');
-        msg.innerHTML = '<p style="color:red">失败: ' + error.message + '</p>';
-      } else {
-        log(type + '成功: ' + currentGoods.name + ' x' + qty, 'success');
-        msg.innerHTML = '<p style="color:green">' + type + '成功: ' + currentGoods.name + ' x' + qty + '</p>';
-        document.getElementById('code').value = '';
-        document.getElementById('qty').value = '1';
-        document.getElementById('goodsInfo').innerHTML = '';
-        currentGoods = null;
-      }
-    }
+  } catch(e) {
+    log('客户端创建失败: ' + e.message, 'error');
   }
   
-  if (document.readyState === 'complete') {
-    init();
-  } else {
-    window.addEventListener('load', init);
+  let currentGoods = null;
+  let html5QrcodeScanner = null;
+  
+  window.startScan = async function() {
+    document.getElementById('msg').innerHTML = '';
+    if (html5QrcodeScanner) {
+      try { await html5QrcodeScanner.clear(); } catch(e) {}
+    }
+    html5QrcodeScanner = new Html5Qrcode("reader");
+    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+    
+    html5QrcodeScanner.start(
+      { facingMode: "environment" }, 
+      config,
+      (decodedText) => {
+        document.getElementById('code').value = decodedText;
+        window.searchGoods();
+        html5QrcodeScanner.stop();
+        document.getElementById('reader').innerHTML = '';
+      },
+      (error) => {}
+    ).catch(err => {
+      document.getElementById('msg').innerHTML = '<p style="color:red">摄像头启动失败：' + err + '</p>';
+    });
+  }
+  
+  window.searchGoods = async function() {
+    const code = document.getElementById('code').value.trim();
+    const info = document.getElementById('goodsInfo');
+    const msg = document.getElementById('msg');
+    if (!code) {
+      info.innerHTML = '';
+      window.currentGoods = null;
+      return;
+    }
+    
+    log('查询SKU: ' + code);
+    let { data, error } = await supabase.from('stock_view').select('*').eq('sku', code).single();
+    
+    if (error) {
+      log('查询错误: ' + error.message + ' Code: ' + error.code, 'error');
+      msg.innerHTML = '<div class="error">查询错误: ' + error.message + '</div>';
+      return;
+    }
+    
+    if (!data) {
+      let res = await supabase.from('goods').select('sku').eq('barcode', code).single();
+      if (res.data) {
+        let res2 = await supabase.from('stock_view').select('*').eq('sku', res.data.sku).single();
+        data = res2.data;
+      }
+    }
+    
+    if (data) {
+      window.currentGoods = data;
+      log('查询成功: ' + data.name, 'success');
+      info.innerHTML = '<div class="info">' +
+        '<div><b>' + data.name + '</b> [' + data.sku + ']</div>' +
+        '<div>库位: ' + (data.location || '无') + '</div>' +
+        '<div>当前库存: <span class="stock">' + data.current_stock + '</span></div>' +
+        '<div>安全库存: ' + data.safe_stock + '</div>' +
+        '<div>状态: <span class="status-' + data.status + '">' + data.status + '</span></div>' +
+        '</div>';
+    } else {
+      window.currentGoods = null;
+      info.innerHTML = '<div class="info" style="color:red">未找到该货品</div>';
+      log('未找到货品', 'error');
+    }
+  }
+
+  window.submit = async function(type) {
+    const qty = parseInt(document.getElementById('qty').value);
+    const operator = document.getElementById('operator').value || '手机端';
+    const msg = document.getElementById('msg');
+    
+    if (!window.currentGoods) {
+      msg.innerHTML = '<p style="color:red">请先输入SKU识别货品</p>';
+      return;
+    }
+    if (!qty || qty <= 0) {
+      msg.innerHTML = '<p style="color:red">请输入正确数量</p>';
+      return;
+    }
+    
+    const { error } = await supabase.from('flow').insert([{
+      type: type,
+      sku: window.currentGoods.sku,
+      name: window.currentGoods.name,
+      qty: type === '入库' ? qty : -qty,
+      operator: operator
+    }]);
+    
+    if (error) {
+      log('提交失败: ' + error.message, 'error');
+      msg.innerHTML = '<p style="color:red">失败: ' + error.message + '</p>';
+    } else {
+      log(type + '成功: ' + window.currentGoods.name + ' x' + qty, 'success');
+      msg.innerHTML = '<p style="color:green">' + type + '成功: ' + window.currentGoods.name + ' x' + qty + '</p>';
+      document.getElementById('code').value = '';
+      document.getElementById('qty').value = '1';
+      document.getElementById('goodsInfo').innerHTML = '';
+      window.currentGoods = null;
+    }
   }
 </script>
 </body>
@@ -210,7 +175,6 @@ export default function Page() {
     <iframe 
       srcDoc={html} 
       style={{width: '100%', height: '100vh', border: 'none'}}
-      allow="camera; microphone"
     />
   )
 }
