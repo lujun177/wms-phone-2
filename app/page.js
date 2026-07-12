@@ -25,7 +25,6 @@ export default function Home() {
     addLog(`查询SKU: ${code}`);
 
     try {
-      // 改这里：走Vercel代理，不再直连Supabase
       const res = await fetch(`/api/goods?sku=${code}`);
       const data = await res.json();
 
@@ -38,7 +37,6 @@ export default function Home() {
       if (data.length > 0) {
         setGoods(data[0]);
         addLog(`查询成功: ${data[0].name}`, 'success');
-        calcStock(data[0].sku);
       } else {
         setGoods(null);
         addLog('未找到商品', 'error');
@@ -46,23 +44,6 @@ export default function Home() {
     } catch (error) {
       addLog(`查询错误: ${error.message}`, 'error');
       setGoods(null);
-    }
-  };
-
-  const calcStock = async (sku) => {
-    try {
-      // 库存计算也走代理
-      const res = await fetch(`/api/goods?sku=${sku}`);
-      const goodsData = await res.json();
-      if (goodsData.length === 0) return setStock(0);
-
-      // 查flow表，临时用服务端渲染绕过
-      const res2 = await fetch(`/api/goods?sku=${sku}&type=stock`);
-      const flowData = await res2.json();
-      const total = Array.isArray(flowData)? flowData.reduce((sum, item) => sum + item.qty, 0) : 0;
-      setStock(total);
-    } catch (e) {
-      setStock(0);
     }
   };
 
@@ -86,20 +67,19 @@ export default function Home() {
   };
 
   const submitFlow = async (type) => {
-    if (!goods ||!qty ||!user) {
+    if (!goods || !qty || !user) {
       addLog('请填写完整信息', 'error');
       return;
     }
 
     try {
-      // 改这里：走Vercel代理提交
       const res = await fetch('/api/goods', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sku: goods.sku,
           name: goods.name,
-          qty: type === '出库'? -qty : qty,
+          qty: type === '出库' ? -qty : qty,
           user: user,
           type: type,
           time: new Date().toISOString()
@@ -110,7 +90,6 @@ export default function Home() {
 
       if (data.success) {
         addLog(`${type}成功: ${goods.name} x${qty}`, 'success');
-        calcStock(goods.sku);
         setSku('');
         setGoods(null);
         setQty(1);
@@ -129,8 +108,8 @@ export default function Home() {
       <div className="space-y-2 mb-4 h-40 overflow-y-auto bg-gray-50 p-2 rounded">
         {logs.map((log, i) => (
           <div key={i} className={`p-2 rounded text-sm ${
-            log.type === 'success'? 'bg-green-100 text-green-800' :
-            log.type === 'error'? 'bg-red-100 text-red-800' :
+            log.type === 'success' ? 'bg-green-100 text-green-800' :
+            log.type === 'error' ? 'bg-red-100 text-red-800' :
             'bg-white'
           }`}>
             {log.time} - {log.msg}
@@ -159,7 +138,6 @@ export default function Home() {
         <div className="bg-blue-100 p-3 rounded mb-4">
           <div className="font-bold">商品: {goods.name}</div>
           <div>SKU: {goods.sku}</div>
-          <div>当前库存: {stock}</div>
         </div>
       )}
 
