@@ -1,4 +1,4 @@
-'use client';
+use client';
 import { useState, useEffect, useRef } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 
@@ -124,5 +124,3 @@ export default function Home() {
         </button>
       </div>
     </div>
-  );
-}
