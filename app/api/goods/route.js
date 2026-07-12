@@ -1,4 +1,7 @@
-export const dynamic = 'force-dynamic';
+export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+  const sku = searchParams.get('sku');
+  // ...后面代码不变
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
