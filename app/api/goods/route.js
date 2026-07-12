@@ -1,24 +1,21 @@
-export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const sku = searchParams.get('sku');
-  // ...后面代码不变
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const sku = searchParams.get('sku');
-  
-  if (!sku) return Response.json([]);
-  
-  const res = await fetch(
-    `https://khovpgqqrltmiclwzec.supabase.co/rest/v1/goods?sku=eq.${sku}&select=*`,
-    {
-      headers: {
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtob3ZwZ3FxcmlsdG1pY2x3emVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3NzMyNDQsImV4cCI6MjA5OTM0OTI0NH0.H1BAyz93efH4FRC6TzBgR9RF8Qnhmps8WCdltvc-W9k'
-      },
-      cache: 'no-store'
-    }
-  );
-  
-  const data = await res.json();
+  const { data, error } = await supabase.from('goods').select('*').eq('sku', sku);
+  if (error) return Response.json({ error: error.message }, { status: 500 });
   return Response.json(data);
+}
+
+export async function POST(request) {
+  const body = await request.json();
+  const { data, error } = await supabase.from('inventory_logs').insert([body]);
+  if (error) return Response.json({ error: error.message }, { status: 500 });
+  return Response.json({ success: true, data });
 }
